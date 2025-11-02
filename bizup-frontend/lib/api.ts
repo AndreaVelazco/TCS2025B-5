@@ -1,0 +1,298 @@
+// API service for Django backend integration
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+
+interface RegisterData {
+  nombre: string
+  correo: string
+  password: string
+  perfil: string
+}
+
+interface LoginData {
+  correo: string
+  password: string
+}
+
+interface TokenResponse {
+  access: string
+  refresh: string
+}
+
+interface UserData {
+  id_usuario: number
+  nombre: string
+  correo: string
+  perfil: string
+  fecha_registro: string
+}
+
+interface TestQuestion {
+  id_pregunta: number
+  categoria: string
+  pregunta: string
+  opciones: string[]
+  nivel_dificultad: string
+}
+
+interface TestAnswer {
+  pregunta_id: number
+  respuesta: number
+}
+
+interface TestResult {
+  id_test: number
+  id_usuario: number
+  resultado: Record<string, number>
+  puntuacion_total: number
+  nivel_determinado: string
+  fecha: string
+}
+
+interface RecursoAprendizaje {
+  id_recurso: number
+  tipo: "video" | "articulo" | "curso" | "podcast" | "infografia"
+  titulo: string
+  enlace: string
+  tematica: string
+  descripcion: string
+  nivel: "principiante" | "intermedio" | "avanzado"
+  fecha_creacion: string
+}
+
+interface Recomendacion {
+  id_recomendacion: number
+  id_usuario: number
+  id_recurso: number
+  recurso: RecursoAprendizaje
+  criterio: string
+  fecha_recomendacion: string
+  visto: boolean
+  util: boolean | null
+}
+
+class ApiService {
+  // Authentication
+  async register(data: RegisterData): Promise<UserData> {
+    console.log("[v0] Registering user:", { ...data, password: "***" })
+    console.log("[v0] API URL:", `${API_URL}/usuarios/`)
+
+    const response = await fetch(`${API_URL}/usuarios/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+
+    return this.handleResponse<UserData>(response)
+  }
+
+  async login(data: LoginData): Promise<TokenResponse> {
+    console.log("[v0] Logging in user:", { ...data, password: "***" })
+    console.log("[v0] API URL:", `${API_URL}/token/`)
+
+    const response = await fetch(`${API_URL}/token/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+
+    return this.handleResponse<TokenResponse>(response)
+  }
+
+  async getCurrentUser(): Promise<UserData> {
+    const token = this.getAccessToken()
+    if (!token) {
+      throw new Error("No hay token de autenticación")
+    }
+
+    const response = await fetch(`${API_URL}/usuarios/me/`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    return this.handleResponse<UserData>(response)
+  }
+
+  async refreshToken(): Promise<TokenResponse> {
+    const refreshToken = this.getRefreshToken()
+    if (!refreshToken) {
+      throw new Error("No hay refresh token")
+    }
+
+    const response = await fetch(`${API_URL}/token/refresh/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ refresh: refreshToken }),
+    })
+
+    return this.handleResponse<TokenResponse>(response)
+  }
+
+  // Token management
+  setTokens(access: string, refresh: string) {
+    localStorage.setItem("access_token", access)
+    localStorage.setItem("refresh_token", refresh)
+  }
+
+  getAccessToken(): string | null {
+    return localStorage.getItem("access_token")
+  }
+
+  getRefreshToken(): string | null {
+    return localStorage.getItem("refresh_token")
+  }
+
+  clearTokens() {
+    localStorage.removeItem("access_token")
+    localStorage.removeItem("refresh_token")
+    localStorage.removeItem("user")
+  }
+
+  isAuthenticated(): boolean {
+    return !!this.getAccessToken()
+  }
+
+  // Mini-test
+  async getTestQuestions(cantidad = 5): Promise<TestQuestion[]> {
+    const token = this.getAccessToken()
+    const response = await fetch(`${API_URL}/evaluaciones/tests/obtener_preguntas/?cantidad=${cantidad}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    return this.handleResponse<TestQuestion[]>(response)
+  }
+
+  async submitTestAnswers(answers: TestAnswer[]): Promise<TestResult> {
+    const token = this.getAccessToken()
+    const response = await fetch(`${API_URL}/evaluaciones/tests/enviar_respuestas/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ respuestas: answers }),
+    })
+
+    return this.handleResponse<TestResult>(response)
+  }
+
+  async getLastTestResult(): Promise<TestResult | null> {
+    const token = this.getAccessToken()
+    const response = await fetch(`${API_URL}/evaluaciones/tests/ultimo_resultado/`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (response.status === 404) {
+      return null
+    }
+
+    return this.handleResponse<TestResult>(response)
+  }
+
+  // Recommendations
+  async getMyRecommendations(): Promise<Recomendacion[]> {
+    const token = this.getAccessToken()
+    const response = await fetch(`${API_URL}/aprendizaje/recomendaciones/mis_recomendaciones/`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    return this.handleResponse<Recomendacion[]>(response)
+  }
+
+  async markRecommendationAsSeen(id: number): Promise<void> {
+    const token = this.getAccessToken()
+    const response = await fetch(`${API_URL}/aprendizaje/recomendaciones/${id}/marcar_visto/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    await this.handleResponse<void>(response)
+  }
+
+  async rateRecommendation(id: number, util: boolean): Promise<void> {
+    const token = this.getAccessToken()
+    const response = await fetch(`${API_URL}/aprendizaje/recomendaciones/${id}/calificar/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ util }),
+    })
+
+    await this.handleResponse<void>(response)
+  }
+
+  async getResourcesByTopic(tematica: string): Promise<RecursoAprendizaje[]> {
+    const token = this.getAccessToken()
+    const response = await fetch(`${API_URL}/aprendizaje/recursos/por_tematica/?tematica=${tematica}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    return this.handleResponse<RecursoAprendizaje[]>(response)
+  }
+
+  async getResourcesByLevel(nivel?: string): Promise<RecursoAprendizaje[]> {
+    const token = this.getAccessToken()
+    const url = nivel
+      ? `${API_URL}/aprendizaje/recursos/por_nivel/?nivel=${nivel}`
+      : `${API_URL}/aprendizaje/recursos/por_nivel/`
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    return this.handleResponse<RecursoAprendizaje[]>(response)
+  }
+
+  // Helper method to handle API responses with better error messages
+  private async handleResponse<T>(response: Response): Promise<T> {
+    console.log("[v0] API Response:", {
+      url: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get("content-type"),
+    })
+
+    // Check if response is JSON
+    const contentType = response.headers.get("content-type")
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text()
+      console.error("[v0] Non-JSON response:", text.substring(0, 200))
+      throw new Error(
+        `El servidor devolvió HTML en lugar de JSON. Verifica que el backend esté corriendo en ${API_URL}`,
+      )
+    }
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      console.error("[v0] API Error:", data)
+      throw new Error(data.message || data.detail || "Error en la petición")
+    }
+
+    return data
+  }
+}
+
+export const api = new ApiService()
+export type { RecursoAprendizaje, Recomendacion }
+
