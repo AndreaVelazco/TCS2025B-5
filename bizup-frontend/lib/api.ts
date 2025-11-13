@@ -70,6 +70,33 @@ interface Recomendacion {
   util: boolean | null
 }
 
+interface DashboardCategory {
+  categoria: string
+  total: number
+}
+
+interface DashboardData {
+  total_ingresos: number
+  total_gastos: number
+  balance: number
+  resumen_por_categoria: DashboardCategory[]
+  registros_recientes: Array<{
+    id_registro: number
+    tipo: string
+    monto: string | number
+    fecha: string
+    categoria: string
+    descripcion?: string
+  }>
+  metas_activas: Array<{
+    id_meta: number
+    nombre: string
+    monto_objetivo: string | number
+    monto_actual: string | number
+    estado: string
+  }>
+}
+
 class ApiService {
   // Authentication
   async register(data: RegisterData): Promise<UserData> {
@@ -263,7 +290,37 @@ class ApiService {
     return this.handleResponse<RecursoAprendizaje[]>(response)
   }
 
-  // Helper method to handle API responses with better error messages
+  // Dashboard
+  async getDashboard(): Promise<DashboardData> {
+    const token = this.getAccessToken()
+    const response = await fetch(`${API_URL}/finanzas/dashboard/`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    return this.handleResponse<DashboardData>(response)
+  }
+
+  async createMovimiento(tipo: "ingreso" | "gasto", monto: number, categoria: string, descripcion: string = ""): Promise<any> {
+    const token = this.getAccessToken()
+    const response = await fetch(`${API_URL}/finanzas/dashboard/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        tipo,
+        monto,
+        categoria,
+        descripcion,
+      }),
+    })
+
+    return this.handleResponse<any>(response)
+  }
+
   private async handleResponse<T>(response: Response): Promise<T> {
     console.log("[v0] API Response:", {
       url: response.url,
@@ -272,7 +329,6 @@ class ApiService {
       contentType: response.headers.get("content-type"),
     })
 
-    // Check if response is JSON
     const contentType = response.headers.get("content-type")
     if (!contentType || !contentType.includes("application/json")) {
       const text = await response.text()

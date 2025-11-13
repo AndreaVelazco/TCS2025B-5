@@ -24,3 +24,22 @@ class MetaFinancieraSerializer(serializers.ModelSerializer):
                   'monto_actual', 'fecha_inicio', 'fecha_objetivo', 
                   'estado', 'descripcion', 'porcentaje_completado']
         read_only_fields = ['id_meta']
+
+
+class DashboardSerializer(serializers.Serializer):
+    """Serializer para la respuesta del dashboard financiero.
+
+    Campos:
+    - total_ingresos: suma de ingresos del usuario
+    - total_gastos: suma de gastos del usuario
+    - balance: diferencia ingresos - gastos
+    - resumen_por_categoria: lista de {categoria, total} en periodo reciente
+    - registros_recientes: últimos registros (lista de dicts)
+    - metas_activas: metas activas del usuario (lista de dicts)
+    """
+    total_ingresos = serializers.FloatField()
+    total_gastos = serializers.FloatField()
+    balance = serializers.FloatField()
+    resumen_por_categoria = serializers.ListField(child=serializers.DictField(), allow_empty=True)
+    registros_recientes = serializers.ListField(child=serializers.DictField(), allow_empty=True)
+    metas_activas = serializers.ListField(child=serializers.DictField(), allow_empty=True)
