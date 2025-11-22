@@ -1,12 +1,13 @@
 from rest_framework import serializers
 from .models import RegistroFinanciero, ReporteFinanciero, MetaFinanciera
 
+# En finanzas/serializers.py
+
 class RegistroFinancieroSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegistroFinanciero
-        fields = ['id_registro', 'id_usuario', 'tipo', 'monto', 'fecha', 
-                  'categoria', 'descripcion', 'fecha_creacion', 'oportunidad']
-        read_only_fields = ['id_registro', 'fecha_creacion']
+        fields = ['id_registro', 'tipo', 'monto', 'fecha', 'categoria', 'descripcion', 'fecha_creacion', 'id_usuario']
+        read_only_fields = ['id_registro', 'fecha_creacion', 'id_usuario']  # id_usuario es read_only
 
 class ReporteFinancieroSerializer(serializers.ModelSerializer):
     class Meta:

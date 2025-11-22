@@ -302,51 +302,103 @@ class ApiService {
     return this.handleResponse<DashboardData>(response)
   }
 
-  async createMovimiento(tipo: "ingreso" | "gasto", monto: number, categoria: string, descripcion: string = ""): Promise<any> {
-    const token = this.getAccessToken()
-    const response = await fetch(`${API_URL}/finanzas/dashboard/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        tipo,
-        monto,
-        categoria,
-        descripcion,
-      }),
-    })
-
-    return this.handleResponse<any>(response)
+async createMovimiento(
+  tipo: "ingreso" | "gasto", 
+  monto: number, 
+  categoria: string, 
+  descripcion: string = "",
+  fecha?: string
+): Promise<any> {
+  const token = this.getAccessToken()
+  
+  const payload: any = {
+    tipo,
+    monto,
+    categoria,
+    descripcion,
   }
+  
+  if (fecha) {
+    payload.fecha = fecha
+  }
+  
+  console.log("[API] Enviando movimiento:", payload)
+  
+  // CAMBIAR ESTA LÍNEA - usar /registros/ en lugar de /dashboard/
+  const response = await fetch(`${API_URL}/finanzas/registros/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  return this.handleResponse<any>(response)
+}
 
   private async handleResponse<T>(response: Response): Promise<T> {
-    console.log("[v0] API Response:", {
-      url: response.url,
-      status: response.status,
-      statusText: response.statusText,
-      contentType: response.headers.get("content-type"),
-    })
+  console.log("[v0] API Response:", {
+    url: response.url,
+    status: response.status,
+    statusText: response.statusText,
+    contentType: response.headers.get("content-type"),
+  })
 
-    const contentType = response.headers.get("content-type")
-    if (!contentType || !contentType.includes("application/json")) {
-      const text = await response.text()
-      console.error("[v0] Non-JSON response:", text.substring(0, 200))
-      throw new Error(
-        `El servidor devolvió HTML en lugar de JSON. Verifica que el backend esté corriendo en ${API_URL}`,
-      )
-    }
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      console.error("[v0] API Error:", data)
-      throw new Error(data.message || data.detail || "Error en la petición")
-    }
-
-    return data
+  const contentType = response.headers.get("content-type")
+  
+  let data: any
+  
+  if (!contentType || !contentType.includes("application/json")) {
+    const text = await response.text()
+    console.error("[v0] Non-JSON response:", text.substring(0, 500))
+    throw new Error(
+      `El servidor devolvió HTML en lugar de JSON. Verifica que el backend esté corriendo en ${API_URL}`,
+    )
   }
+
+  try {
+    data = await response.json()
+  } catch (e) {
+    console.error("[v0] Error parsing JSON:", e)
+    throw new Error("Error al parsear la respuesta del servidor")
+  }
+
+  if (!response.ok) {
+    console.error("[v0] API Error Response:", data)
+    console.error("[v0] API Error Keys:", Object.keys(data))
+    
+    // Intentar extraer el mensaje de error de diferentes formatos
+    let errorMessage = "Error en la petición"
+    
+    if (data.detail) {
+      errorMessage = data.detail
+    } else if (data.message) {
+      errorMessage = data.message
+    } else if (data.error) {
+      errorMessage = data.error
+    } else if (typeof data === 'string') {
+      errorMessage = data
+    } else {
+      // Si hay errores de validación de campos
+      const errors = []
+      for (const [key, value] of Object.entries(data)) {
+        if (Array.isArray(value)) {
+          errors.push(`${key}: ${value.join(', ')}`)
+        } else {
+          errors.push(`${key}: ${value}`)
+        }
+      }
+      if (errors.length > 0) {
+        errorMessage = errors.join('; ')
+      }
+    }
+    
+    throw new Error(errorMessage)
+  }
+
+  return data
+}
 }
 
 export const api = new ApiService()

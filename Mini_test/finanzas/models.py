@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import Sum
 from datetime import datetime
+from django.utils import timezone
 
 class RegistroFinanciero(models.Model):
     TIPO_CHOICES = [
@@ -33,7 +34,7 @@ class RegistroFinanciero(models.Model):
     id_usuario = models.ForeignKey('usuarios.Usuario', on_delete=models.CASCADE, related_name='registros_financieros')
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     monto = models.DecimalField(max_digits=10, decimal_places=2)
-    fecha = models.DateField()
+    fecha = models.DateTimeField(default=timezone.now)
     categoria = models.CharField(max_length=30, choices=CATEGORIA_CHOICES)
     descripcion = models.TextField(blank=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)

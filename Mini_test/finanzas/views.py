@@ -9,15 +9,39 @@ from .servicios import ServicioFinanzas
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Sum
 
+
 class RegistroFinancieroViewSet(viewsets.ModelViewSet):
     queryset = RegistroFinanciero.objects.all()
     serializer_class = RegistroFinancieroSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         return self.queryset.filter(id_usuario=self.request.user)
     
     def perform_create(self, serializer):
-        serializer.save(id_usuario=self.request.user)
+        """Asignar automáticamente el usuario autenticado al crear un registro"""
+        from django.utils import timezone
+        from django.utils.dateparse import parse_datetime
+        
+        # Obtener fecha del request
+        fecha_str = self.request.data.get('fecha')
+        
+        if fecha_str:
+            # Convertir fecha ISO a datetime con zona horaria
+            fecha_dt = parse_datetime(fecha_str)
+            if fecha_dt:
+                # Asegurar que tenga zona horaria
+                if timezone.is_naive(fecha_dt):
+                    fecha_dt = timezone.make_aware(fecha_dt)
+                # Convertir a hora local de Lima
+                fecha = timezone.localtime(fecha_dt)
+            else:
+                fecha = timezone.localtime(timezone.now())
+        else:
+            fecha = timezone.localtime(timezone.now())
+        
+        # Guardar con el usuario autenticado y la fecha procesada
+        serializer.save(id_usuario=self.request.user, fecha=fecha)
     
     @action(detail=False, methods=['get'])
     def por_mes(self, request):
@@ -41,6 +65,7 @@ class RegistroFinancieroViewSet(viewsets.ModelViewSet):
         registros = self.get_queryset().filter(categoria=categoria)
         serializer = self.get_serializer(registros, many=True)
         return Response(serializer.data)
+
 
 class ReporteFinancieroViewSet(viewsets.ModelViewSet):
     queryset = ReporteFinanciero.objects.all()
@@ -82,6 +107,7 @@ class ReporteFinancieroViewSet(viewsets.ModelViewSet):
         anio = int(request.query_params.get('anio', datetime.now().year))
         resumen = ServicioFinanzas.obtener_resumen_anual(request.user, anio)
         return Response(resumen)
+
 
 class MetaFinancieraViewSet(viewsets.ModelViewSet):
     queryset = MetaFinanciera.objects.all()
@@ -169,15 +195,21 @@ class DashboardViewSet(viewsets.ViewSet):
             "tipo": "ingreso" | "gasto",
             "monto": float,
             "categoria": string,
-            "descripcion": string (opcional)
+            "descripcion": string (opcional),
+            "fecha": string ISO (opcional)
         }
         
-        Returns: El registro creado + dashboard actualizado
+        Returns: El registro creado
         """
+        from datetime import date
+        from django.utils import timezone
+        from django.utils.dateparse import parse_datetime
+        
         tipo = request.data.get('tipo')
         monto = request.data.get('monto')
         categoria = request.data.get('categoria')
         descripcion = request.data.get('descripcion', '')
+        fecha_str = request.data.get('fecha')
         
         # Validar campos requeridos
         if not all([tipo, monto, categoria]):
@@ -193,14 +225,32 @@ class DashboardViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Crear el registro con la fecha de hoy
-        from datetime import date
+        # Procesar fecha
+        if fecha_str:
+            fecha_dt = parse_datetime(fecha_str)
+            if fecha_dt:
+                # Asegurar que tenga zona horaria
+                if timezone.is_naive(fecha_dt):
+                    fecha_dt = timezone.make_aware(fecha_dt)
+                # Convertir a hora local de Lima
+                fecha = timezone.localtime(fecha_dt)
+            else:
+                fecha = timezone.localtime(timezone.now())
+        else:
+            fecha = timezone.localtime(timezone.now())
+        
+        # Log para debug
+        print(f"[DEBUG] Fecha recibida: {fecha_str}")
+        print(f"[DEBUG] Fecha procesada: {fecha}")
+        print(f"[DEBUG] Zona horaria: {timezone.get_current_timezone()}")
+        
+        # Crear el registro
         try:
             registro = RegistroFinanciero.objects.create(
                 id_usuario=request.user,
                 tipo=tipo,
                 monto=float(monto),
-                fecha=date.today(),
+                fecha=fecha,
                 categoria=categoria,
                 descripcion=descripcion
             )
