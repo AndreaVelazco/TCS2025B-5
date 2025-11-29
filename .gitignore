@@ -1,0 +1,19 @@
+# React / frontend
+bizup-frontend/node_modules/
+bizup-frontend/build/
+bizup-frontend/dist/
+
+# Django / backend
+Mini_test/__pycache__/
+Mini_test/db.sqlite3
+Mini_test/*.pyc
+Mini_test/env/
+venv/
+
+# Sistema / editor
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml

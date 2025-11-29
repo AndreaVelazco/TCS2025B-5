@@ -1,0 +1,53 @@
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Entornos virtuales
+venv/
+env/
+.venv/
+.env/
+
+# Configuración del IDE
+.vscode/
+.idea/
+*.swp
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de logs y bases temporales
+*.log
+*.sqlite3
+
+# Archivos de entorno y variables secretas
+.env.local
+.env.dev
+.env.prod
+.env.example
+
+# Archivos de caché y temporales
+*.bak
+*.tmp
+
+# Archivos de compilación o migraciones innecesarias
+*/migrations/__pycache__/
+# Si quieres ignorar todas las migraciones iniciales (opcional):
+# */migrations/*
+
+# Archivos frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Archivos de Docker (opcional)
+*.pid
+docker-compose.override.yml
